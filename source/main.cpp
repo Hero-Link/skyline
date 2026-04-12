@@ -1,6 +1,6 @@
 #include "main.hpp"
 
-#include "skyline/logger/TcpLogger.hpp"
+#include "skyline/logger/DualLogger.hpp"
 #include "skyline/utils/ipc.hpp"
 #include "skyline/utils/cpputils.hpp"
 #include "skyline/utils/utils.h"
@@ -104,7 +104,7 @@ void skyline_main() {
 
     // initialize logger
     nn::fs::MountSdCardForDebug("sd");
-    skyline::logger::s_Instance = new skyline::logger::TcpLogger();
+    skyline::logger::s_Instance = new skyline::logger::DualLogger();
     skyline::logger::s_Instance->StartThread();
     skyline::logger::s_Instance->Log("[skyline_main] Beginning initialization.\n");
 

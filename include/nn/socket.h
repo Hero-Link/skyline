@@ -29,5 +29,14 @@ class Config;
     u32 Listen(s32 socket, s32 backlog);
     u32 Accept(s32 socket, sockaddr* addrOut, u32* addrLenOut);
     s32 Close(s32 socket);
+    s32 Shutdown(s32 socket, s32 how);
+
+    struct PollFd {
+        s32 fd;
+        s16 events;
+        s16 revents;
+    };
+
+    s32 Poll(PollFd* fds, u64 nfds, s32 timeout);
 };  // namespace socket
 };  // namespace nn

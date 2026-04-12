@@ -22,6 +22,7 @@ class TcpLogger : public Logger {
 
     void setup_socket_hooks();
     void skyline_socket_init();
+    void skyline_socket_finalize();
     void start_listen_thread();
 };  // namespace skyline::logger
 
