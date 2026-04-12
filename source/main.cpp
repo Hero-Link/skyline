@@ -24,16 +24,6 @@ void exception_handler(nn::os::UserExceptionInfo* info) {
 }
 
 static skyline::utils::Task* after_romfs_task = new skyline::utils::Task{[]() {
-    const size_t poolSize = 0x600000;
-    void* socketPool = memalign(0x4000, poolSize);
-    // TODO: Some games (Fire Emblem Three Houses, Pokemon Sword/Shield if I'm not mistaken, ...) use the &Config variant before arriving here and do not appreciate this. A shared lock between both impls would be convenient.
-    nn::socket::Initialize(socketPool, poolSize, 0x20000, 14);
-
-    skyline::logger::s_Instance->StartThread();
-
-    // Result rc = nn::fs::MountSdCardForDebug("sd");
-    // skyline::logger::s_Instance->LogFormat("[skyline_main] Mounted SD (0x%x)", rc);
-
     // load plugins
     // Note: Bypassing the singleton-like system because some older games (Final Fantasy 9) seem to have issues with _cxa_guard_acquire which gcc automatically adds when using the static instance
     auto manager = new skyline::plugin::Manager();
@@ -105,12 +95,21 @@ void skyline_main() {
     // init hooking setup
     A64HookInit();
 
+    // Initialize sockets directly before hooks are installed, so the call
+    // reaches the nn::socket::Initialize before it is stubbed
+    skyline::logger::skyline_socket_init();
+
+    // Prevent the game from re-initializing or finalizing sockets
     skyline::logger::setup_socket_hooks();
 
     // initialize logger
     nn::fs::MountSdCardForDebug("sd");
     skyline::logger::s_Instance = new skyline::logger::TcpLogger();
+    skyline::logger::s_Instance->StartThread();
     skyline::logger::s_Instance->Log("[skyline_main] Beginning initialization.\n");
+
+    // Start TCP accept on background thread (blocks until a client connects)
+    skyline::logger::start_listen_thread();
 
     // override exception handler to dump info
     nn::os::SetUserExceptionHandler(exception_handler, exception_handler_stack, sizeof(exception_handler_stack),

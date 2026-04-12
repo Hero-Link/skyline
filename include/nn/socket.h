@@ -28,5 +28,6 @@ class Config;
     u32 Bind(s32 socket, const sockaddr* addr, u32 addrLen);
     u32 Listen(s32 socket, s32 backlog);
     u32 Accept(s32 socket, sockaddr* addrOut, u32* addrLenOut);
+    s32 Close(s32 socket);
 };  // namespace socket
 };  // namespace nn

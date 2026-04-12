@@ -13,14 +13,6 @@ namespace skyline::logger {
 nn::fs::FileHandle dualfileHandle;
 s64 Dualoffset;
 int g_dualtcpSocket;
-bool g_dualloggerInit = false;
-
-Result dualstub(){
-    return 0;
-};
-
-Result (*nnSocketInitImpl)(void*, ulong, ulong, int);
-Result (*nnSocketInitConfigImpl)(nn::socket::Config const&);
 
 DualLogger::DualLogger(std::string path) {
     nn::fs::DirectoryEntryType type;
@@ -37,26 +29,12 @@ DualLogger::DualLogger(std::string path) {
 }
 
 void DualLogger::Initialize() {
-    const size_t poolSize = 0x600000;
-    void* socketPool = memalign(0x4000, poolSize);
-
-    Result (*nnSocketInitalizeWithPool)(void*, ulong, ulong, int) = nn::socket::Initialize;
-    A64HookFunction(reinterpret_cast<void*>(nnSocketInitalizeWithPool), reinterpret_cast<void*>(dualstub),
-                    (void**)&nnSocketInitImpl);  // prevent trying to init sockets twice (crash)
-
-    // TODO: This is definitely not the proper way to do it but I hate C++ and TcpLogger doesn't do it properly either anyways
-    Result (*socketInitializeWithConfig)(nn::socket::Config const&) = nn::socket::Initialize;
-    A64HookFunction(reinterpret_cast<void*>(socketInitializeWithConfig), reinterpret_cast<void*>(dualstub),
-                    (void**)&nnSocketInitConfigImpl);  // prevent trying to init sockets twice (crash)
-
-    A64HookFunction(reinterpret_cast<void*>(nn::socket::Finalize), reinterpret_cast<void*>(dualstub),
-                    NULL);  // prevent it being deinit either
-
-    nnSocketInitImpl(socketPool, poolSize, 0x20000, 14);
+    // Sockets are already initialized by skyline_socket_init() in TcpLogger.cpp.
+    // Just set up the TCP accept for this logger's socket.
 
     struct sockaddr_in serverAddr;
     g_dualtcpSocket = nn::socket::Socket(AF_INET, SOCK_STREAM, 0);
-    if (g_dualtcpSocket & 0x80000000) return;
+    if (g_dualtcpSocket < 0) return;
 
     int flags = 1;
     nn::socket::SetSockOpt(g_dualtcpSocket, SOL_SOCKET, SO_KEEPALIVE, &flags, sizeof(flags));
@@ -66,22 +44,28 @@ void DualLogger::Initialize() {
     serverAddr.sin_port = nn::socket::InetHtons(PORT);
 
     int rval = nn::socket::Bind(g_dualtcpSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-    if (rval < 0) return;
+    if (rval < 0) {
+        nn::socket::Close(g_dualtcpSocket);
+        return;
+    }
 
     rval = nn::socket::Listen(g_dualtcpSocket, 1);
-    if (rval < 0) return;
+    if (rval < 0) {
+        nn::socket::Close(g_dualtcpSocket);
+        return;
+    }
 
-    u32 addrLen;
-    g_dualtcpSocket = nn::socket::Accept(g_dualtcpSocket, (struct sockaddr*)&serverAddr, &addrLen);
-
-    g_dualloggerInit = true;
+    u32 addrLen = sizeof(serverAddr);
+    s32 listenSocket = g_dualtcpSocket;
+    g_dualtcpSocket = nn::socket::Accept(listenSocket, (struct sockaddr*)&serverAddr, &addrLen);
+    nn::socket::Close(listenSocket);
 }
 
 void DualLogger::SendRaw(void* data, size_t size) {
     nn::fs::SetFileSize(dualfileHandle, Dualoffset + size);
 
     nn::socket::Send(g_dualtcpSocket, data, size, 0);
-    
+
     nn::fs::WriteFile(dualfileHandle, Dualoffset, data, size,
                       nn::fs::WriteOption::CreateOption(nn::fs::WriteOptionFlag_Flush));
 
