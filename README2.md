@@ -10,11 +10,11 @@ Learn about Skyline, a runtime hooking and code patching framework for Super Sma
 
 What is Skyline?
 
-Skyline is an environment for **linking, runtime hooking, and code patching** in Super Smash Bros. Ultimate on Nintendo Switch. It enables developers to create plugins that can modify game behavior, hook functions, and extend functionality without modifying the game’s original code.Skyline runs as a layer between the game and the Atmosphere custom firmware, intercepting function calls and loading custom code at runtime.## 
+Skyline is an environment for **linking, runtime hooking, and code patching** in Super Smash Bros. Ultimate on Nintendo Switch. It enables developers to create plugins that can modify game behavior, hook functions, and extend functionality without modifying the game’s original code.Skyline runs as a layer between the game and the Atmosphere custom firmware, intercepting function calls and loading custom code at runtime.##
 
 Architecture
 
-Skyline operates through several key components:### 
+Skyline operates through several key components:###
 
 Plugin Loading System
 
@@ -24,7 +24,7 @@ The **PluginManager** (`skyline/plugin/PluginManager.hpp:13`) manages the entire
 * Uses Nintendo’s `nn::ro` (relocatable object) module system to load plugins dynamically
 * Executes each plugin’s `main()` function as an entry point after loading
 
-Plugins are loaded from: `atmosphere/contents/<game titleid>/romfs/skyline/plugins/`### 
+Plugins are loaded from: `atmosphere/contents/<game titleid>/romfs/skyline/plugins/`###
 
 Runtime Hooking
 
@@ -33,7 +33,7 @@ Skyline uses **And64InlineHook** (`skyline/inlinehook/And64InlineHook.hpp:58`) f
 * `A64InlineHook()` - Injects code directly into the instruction stream
 * Supports up to 2048 simultaneous hooks (`A64_MAX_BACKUPS`)
 
-Hooks are installed during initialization in `source/main.cpp:106` after calling `A64HookInit()`.### 
+Hooks are installed during initialization in `source/main.cpp:106` after calling `A64HookInit()`.###
 
 Logger System
 
@@ -43,7 +43,7 @@ Skyline provides multiple logging backends (`skyline/logger/Logger.hpp:14`):* **
 * **KernelLogger** - Low-level kernel debug output
 * **DummyLogger** - No-op logger for production builds
 
-The logger is initialized early in `source/main.cpp:112` and is available globally via `skyline::logger::s_Instance`.## 
+The logger is initialized early in `source/main.cpp:112` and is available globally via `skyline::logger::s_Instance`.##
 
 Key Features
 
@@ -80,7 +80,7 @@ Skyline is  **derived from OdysseyReversed and Starlight** , projects originally
 * **Thog** - rtld (runtime loader) expertise
 * **jakibaki** - Runtime hooking advice
 
-Skyline inherits the plugin architecture and hooking system from these projects while adding Super Smash Bros. Ultimate specific features.## 
+Skyline inherits the plugin architecture and hooking system from these projects while adding Super Smash Bros. Ultimate specific features.##
 
 Game Compatibility
 
@@ -111,8 +111,6 @@ The `main.npdm` file in Skyline’s exefs directory is specifically configured f
 [InstallationInstall Skyline on your Nintendo Switch](https://mintlify.wiki/skyline-dev/skyline/installation)
 
 [Quick StartCreate your first Skyline plugin](https://mintlify.wiki/skyline-dev/skyline/quickstart)
-
-
 
 # Installation
 
@@ -370,8 +368,6 @@ Now that Skyline is installed, you’re ready to:[Quick StartCreate your first S
 
 [Plugin DevelopmentLearn about plugin architecture and APIs](https://mintlify.wiki/skyline-dev/skyline/plugins/getting-started)
 
-
-
 # Quick Start
 
 Create your first Skyline plugin in minutes
@@ -384,7 +380,7 @@ Create your first Skyline plugin in minutes
 
 # Quick Start Guide
 
-This guide will walk you through creating your first Skyline plugin - a simple mod that hooks a function and logs messages.## 
+This guide will walk you through creating your first Skyline plugin - a simple mod that hooks a function and logs messages.##
 
 Prerequisites
 
@@ -663,7 +659,7 @@ Test the Plugin
 
 ## Using the Logger
 
-Skyline provides a powerful logging system defined in `skyline/logger/Logger.hpp:14`.### 
+Skyline provides a powerful logging system defined in `skyline/logger/Logger.hpp:14`.###
 
 Basic Logging
 
@@ -707,7 +703,7 @@ skyline::logger::s_Instance->SendRaw("No buffering\n");
 
 ## Hooking Functions
 
-The core of Skyline plugins is **function hooking** using `A64HookFunction()` from `And64InlineHook.hpp:58`.### 
+The core of Skyline plugins is **function hooking** using `A64HookFunction()` from `And64InlineHook.hpp:58`.###
 
 Hook Signature
 
@@ -966,8 +962,6 @@ Check the TCP log output after game launch:
 
 [TroubleshootingDebug issues and solve common problems](https://mintlify.wiki/skyline-dev/skyline/advanced/troubleshooting)
 
-
-
 # System Architecture
 
 Understanding the overall architecture and initialization flow of Skyline
@@ -978,7 +972,7 @@ Understanding the overall architecture and initialization flow of Skyline
 >
 > Use this file to discover all available pages before exploring further.
 
-Skyline is a runtime hooking and code patching framework that runs as a plugin for Nintendo Switch games. It provides a comprehensive system for intercepting function calls, loading dynamic modules, and modifying game behavior at runtime.## 
+Skyline is a runtime hooking and code patching framework that runs as a plugin for Nintendo Switch games. It provides a comprehensive system for intercepting function calls, loading dynamic modules, and modifying game behavior at runtime.##
 
 Core Components
 
@@ -1165,7 +1159,7 @@ void exception_handler(nn::os::UserExceptionInfo* info) {
 }
 ```
 
-This handler logs all CPU registers and exception information before the game crashes, making debugging significantly easier.## 
+This handler logs all CPU registers and exception information before the game crashes, making debugging significantly easier.##
 
 Thread Safety
 
@@ -1191,8 +1185,6 @@ This architecture ensures that:1. Core systems are initialized before any hooks 
 
 [Plugin DevelopmentCreate your own Skyline plugins](https://mintlify.wiki/skyline-dev/skyline/core/plugin-system)
 
-
-
 # Hooking System
 
 ARM64 function hooking and inline patching with A64InlineHook
@@ -1203,7 +1195,7 @@ ARM64 function hooking and inline patching with A64InlineHook
 >
 > Use this file to discover all available pages before exploring further.
 
-Skyline’s hooking system provides two primary methods for intercepting function calls: **function hooks** (`A64HookFunction`) and **inline hooks** (`A64InlineHook`). Both are built on top of the ARM64 instruction rewriting engine from the [And64InlineHook](https://github.com/Rprop/And64InlineHook) library.## 
+Skyline’s hooking system provides two primary methods for intercepting function calls: **function hooks** (`A64HookFunction`) and **inline hooks** (`A64InlineHook`). Both are built on top of the ARM64 instruction rewriting engine from the [And64InlineHook](https://github.com/Rprop/And64InlineHook) library.##
 
 Hook Types Comparison
 
@@ -1410,7 +1402,7 @@ struct InlineCtx {
 };
 ```
 
-This structure provides complete access to the CPU state at the moment of the hook.### 
+This structure provides complete access to the CPU state at the moment of the hook.###
 
 How It Works
 
@@ -1532,7 +1524,7 @@ Inline hooks have significant performance overhead because they save and restore
 
 ## Instruction Relocation
 
-Both hook types use sophisticated instruction relocation to handle PC-relative instructions:### 
+Both hook types use sophisticated instruction relocation to handle PC-relative instructions:###
 
 Supported Relocations
 
@@ -1576,11 +1568,11 @@ skyline::inlinehook::ControlledPages control(original, 5 * sizeof(uint32_t));
 control.claim();
 ```
 
-See [Memory Management](https://mintlify.wiki/skyline-dev/skyline/core/memory-management#controlled-pages-system) for details on how this works.## 
+See [Memory Management](https://mintlify.wiki/skyline-dev/skyline/core/memory-management#controlled-pages-system) for details on how this works.##
 
 JIT Memory Allocation
 
-During initialization, two JIT regions are created:### 
+During initialization, two JIT regions are created:###
 
 Normal Hook JIT
 
@@ -1666,8 +1658,6 @@ The inline hook JIT is placed near the game’s `.text` section to ensure branch
 
 [Plugin SystemLearn how to create plugins that use hooks](https://mintlify.wiki/skyline-dev/skyline/core/plugin-system)
 
-
-
 # Plugin System
 
 Dynamic loading and management of NRO plugins in Skyline
@@ -1678,7 +1668,7 @@ Dynamic loading and management of NRO plugins in Skyline
 >
 > Use this file to discover all available pages before exploring further.
 
-Skyline’s plugin system allows you to extend game functionality by loading custom NRO (Nintendo Relocatable Object) modules at runtime. Plugins are dynamically loaded from the game’s RomFS and can use the full Skyline API, including hooks, logging, and memory utilities.## 
+Skyline’s plugin system allows you to extend game functionality by loading custom NRO (Nintendo Relocatable Object) modules at runtime. Plugins are dynamically loaded from the game’s RomFS and can use the full Skyline API, including hooks, logging, and memory utilities.##
 
 Overview
 
@@ -2033,7 +2023,7 @@ const PluginInfo* Manager::GetContainingPluginImpl(const void* addr) {
 }
 ```
 
-This is useful for debugging or implementing plugin-specific behavior.### 
+This is useful for debugging or implementing plugin-specific behavior.###
 
 C API for Address Ranges
 
@@ -2097,7 +2087,7 @@ When an NRO is loaded, it’s mapped into memory:
   └── .bss (uninitialized data) <- separate allocation
 ```
 
-The `.bss` section is allocated separately because it’s not stored in the file.## 
+The `.bss` section is allocated separately because it’s not stored in the file.##
 
 NRR Security System
 
@@ -2145,7 +2135,7 @@ if (R_FAILED(rc)) {
 }
 ```
 
-Plugins that fail to load are removed from the list, and loading continues.### 
+Plugins that fail to load are removed from the list, and loading continues.###
 
 Common Errors
 
@@ -2223,7 +2213,6 @@ Check the Skyline log for messages like:
 
 [Memory ManagementUnderstand memory regions and allocation](https://mintlify.wiki/skyline-dev/skyline/core/memory-management)
 
-
 # Memory Management
 
 Virtual memory setup, JIT compilation, and controlled page management
@@ -2234,11 +2223,11 @@ Virtual memory setup, JIT compilation, and controlled page management
 >
 > Use this file to discover all available pages before exploring further.
 
-Skyline’s memory management system provides the foundation for dynamic code generation, safe memory patching, and plugin execution. It consists of three main components: virtual memory allocation, JIT (Just-In-Time) compilation support, and the controlled pages system for safe executable memory modification.## 
+Skyline’s memory management system provides the foundation for dynamic code generation, safe memory patching, and plugin execution. It consists of three main components: virtual memory allocation, JIT (Just-In-Time) compilation support, and the controlled pages system for safe executable memory modification.##
 
 Virtual Memory System
 
-The virtual memory system provides address space management using the `virtmem` API, which wraps Nintendo Switch kernel services.### 
+The virtual memory system provides address space management using the `virtmem` API, which wraps Nintendo Switch kernel services.###
 
 API Overview
 
@@ -2260,7 +2249,7 @@ Virtual memory must be set up before any JIT operations:**source/main.cpp:144**
 virtmemSetup();  // needed for libnx JIT
 ```
 
-This function initializes the virtual memory subsystem by discovering address space regions.### 
+This function initializes the virtual memory subsystem by discovering address space regions.###
 
 Memory Region Types
 
@@ -2357,7 +2346,7 @@ This algorithm:1. Starts searching from the ASLR base
 
 ## JIT Compilation Support
 
-The JIT system provides executable memory regions for dynamically generated code.### 
+The JIT system provides executable memory regions for dynamically generated code.###
 
 JIT Object Structure
 
@@ -2392,7 +2381,7 @@ typedef enum {
 } JitType;
 ```
 
-Skyline uses `JitType_CodeMemory` on modern firmware versions.### 
+Skyline uses `JitType_CodeMemory` on modern firmware versions.###
 
 JIT API
 
@@ -2445,7 +2434,7 @@ Always transition JIT buffers to executable before executing code from them. Att
 
 ## Controlled Pages System
 
-The controlled pages system provides safe, temporary read-write access to executable memory for patching.### 
+The controlled pages system provides safe, temporary read-write access to executable memory for patching.###
 
 Class Definition
 
@@ -2648,7 +2637,7 @@ void* A64HookFunctionV(void* const symbol, void* const replace, ...) {
 
 ## Memory Allocation for Plugins
 
-Plugins require properly aligned memory for their sections:### 
+Plugins require properly aligned memory for their sections:###
 
 NRO Data Section
 
@@ -2775,8 +2764,6 @@ if ((uintptr_t)addr & 0xFFF) {
 
 [ArchitectureUnderstand the overall system design](https://mintlify.wiki/skyline-dev/skyline/core/architecture)
 
-
-
 # Getting Started with Plugin Development
 
 Learn how to set up your development environment and create your first Skyline plugin
@@ -2789,7 +2776,7 @@ Learn how to set up your development environment and create your first Skyline p
 
 ## Introduction
 
-Skyline plugins are dynamic modules (.nro files) that extend Super Smash Bros Ultimate functionality through runtime hooking and code patching. Plugins are loaded from `atmosphere/contents/<game titleid>/romfs/skyline/plugins/` and executed at runtime.## 
+Skyline plugins are dynamic modules (.nro files) that extend Super Smash Bros Ultimate functionality through runtime hooking and code patching. Plugins are loaded from `atmosphere/contents/<game titleid>/romfs/skyline/plugins/` and executed at runtime.##
 
 Prerequisites
 
@@ -3046,8 +3033,6 @@ Now that you have a working plugin, you can:* Learn about [plugin structure and 
 * Verify all hooked functions have correct signatures
 * Check that you’re not accessing invalid memory addresses
 
-
-
 # Plugin Structure
 
 Understanding the anatomy of a Skyline plugin and how to structure your code
@@ -3060,7 +3045,7 @@ Understanding the anatomy of a Skyline plugin and how to structure your code
 
 ## Plugin File Format
 
-Skyline plugins are **NRO (Nintendo Relocatable Object)** files - position-independent executables that can be loaded at runtime. The plugin system uses Nintendo’s `nn::ro` module loader for dynamic loading.### 
+Skyline plugins are **NRO (Nintendo Relocatable Object)** files - position-independent executables that can be loaded at runtime. The plugin system uses Nintendo’s `nn::ro` module loader for dynamic loading.###
 
 File Requirements
 
@@ -3152,7 +3137,7 @@ These symbols are defined in `exported.txt` of the main Skyline binary.
 
 ### Makefile Configuration
 
-Plugins require specific compiler and linker flags:#### 
+Plugins require specific compiler and linker flags:####
 
 Compiler Flags
 
@@ -3370,8 +3355,6 @@ Plugin unloading is not currently implemented in Skyline. Destructor functions w
 * Learn about [function hooking techniques](https://mintlify.wiki/skyline-dev/skyline/api/hooks/function-hooks)
 * Study [Skyline’s API reference](https://mintlify.wiki/skyline-dev/skyline/api/logger/overview)
 
-
-
 # Plugin Examples
 
 Real-world examples of Skyline plugins with complete, working code
@@ -3390,9 +3373,8 @@ These examples use real API signatures from Skyline source code. No functions or
 
 ## Basic Examples
 
-* Hello World
-* Logger Utility
-* Memory Region Access
+### Hello World
+
 
 The simplest possible plugin that logs a message:
 
@@ -3421,11 +3403,98 @@ extern "C" void main() {
 
 This plugin simply sends a message via TCP logging when loaded.
 
+### Logger Utility
+
+
+A reusable logging utility for your plugins:
+
+```
+#include <cstdarg>
+#include <cstdio>
+#include <cstring>
+
+extern "C" void skyline_tcp_send_raw(void* data, size_t size);
+
+namespace myplugin {
+
+class Logger {
+public:
+    static void Log(const char* msg) {
+        skyline_tcp_send_raw((void*)msg, strlen(msg));
+    }
+
+    static void LogFormat(const char* format, ...) {
+        char buffer[512];
+        va_list args;
+        va_start(args, format);
+        vsnprintf(buffer, sizeof(buffer), format, args);
+        va_end(args);
+        Log(buffer);
+    }
+};
+
+}  // namespace myplugin
+
+extern "C" void main() {
+    myplugin::Logger::Log("[MyPlugin] Initializing...\n");
+    myplugin::Logger::LogFormat("[MyPlugin] Version: %d.%d.%d\n", 1, 0, 0);
+}
+```
+
+This logger interface matches Skyline’s own API for consistency.`Logger.hpp`
+
+### Memory Region Access
+
+
+Reading game memory regions:
+
+```
+#include <cstdio>
+#include <cstring>
+
+extern "C" void skyline_tcp_send_raw(void* data, size_t size);
+extern "C" void* getRegionAddress(int region);
+
+// From skyline/utils/cpputils.hpp
+enum region : int {
+    Text = 0,
+    Rodata = 1,
+    Data = 2,
+    Bss = 3,
+    Heap = 4
+};
+
+void log_format(const char* format, ...) {
+    char buffer[256];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    skyline_tcp_send_raw(buffer, strlen(buffer));
+}
+
+extern "C" void main() {
+    void* text_base = getRegionAddress(region::Text);
+    void* rodata_base = getRegionAddress(region::Rodata);
+    void* data_base = getRegionAddress(region::Data);
+    void* bss_base = getRegionAddress(region::Bss);
+    void* heap_base = getRegionAddress(region::Heap);
+
+    log_format("[MemoryPlugin] Memory regions:\n");
+    log_format("  Text:   0x%016lx\n", (u64)text_base);
+    log_format("  Rodata: 0x%016lx\n", (u64)rodata_base);
+    log_format("  Data:   0x%016lx\n", (u64)data_base);
+    log_format("  BSS:    0x%016lx\n", (u64)bss_base);
+    log_format("  Heap:   0x%016lx\n", (u64)heap_base);
+}
+```
+
+This plugin prints the base addresses of all game memory regions.
+
 Hooking Examples
 
-* Basic Function Hook
-* Inline Hook
-* Hook with Context
+### Basic Function Hook
+
 
 Replace a function with your own implementation:
 
@@ -3468,14 +3537,109 @@ extern "C" void main() {
 }
 ```
 
-`A64HookFunction` performs a trampoline hook, preserving the original function for calling.
+`A64HookFunction` performs a trampoline hook, preserving the original function for calling.
+
+### Inline Hook
+
+
+nject code at a specific address without trampolines:
+
+```
+#include <cstring>
+
+extern "C" void skyline_tcp_send_raw(void* data, size_t size);
+extern "C" void A64InlineHook(void* symbol, void* replace);
+
+void log(const char* msg) {
+    skyline_tcp_send_raw((void*)msg, strlen(msg));
+}
+
+// This function will be jumped to from the hook point
+void inline_hook_handler() {
+    log("[InlineHook] Execution reached hook point!\n");
+
+    // Note: Inline hooks don't preserve original code
+    // You must manually handle continuation if needed
+}
+
+extern "C" void main() {
+    log("[Plugin] Installing inline hook...\n");
+
+    // Install inline hook at specific address
+    void* hook_location = (void*)0x7100ABCDEF0;
+    A64InlineHook(hook_location, (void*)inline_hook_handler);
+
+    log("[Plugin] Inline hook installed!\n");
+}
+```
+
+`A64InlineHook` does not preserve the original code. Use if you need to call the original.`A64HookFunction`
+
+### Hook with Context
+
+
+Pass data to your hook using a context structure:
+
+```
+#include <cstring>
+
+extern "C" void skyline_tcp_send_raw(void* data, size_t size);
+extern "C" void A64HookFunction(void* symbol, void* replace, void** result);
+
+void log_format(const char* format, ...) {
+    char buffer[256];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    skyline_tcp_send_raw(buffer, strlen(buffer));
+}
+
+// Global context for hooks
+struct HookContext {
+    int call_count;
+    bool enabled;
+};
+
+static HookContext g_context = { 0, true };
+
+// Function signature (example from game)
+typedef void (*PlayerUpdateFn)(void* player, float delta_time);
+PlayerUpdateFn original_player_update;
+
+void hooked_player_update(void* player, float delta_time) {
+    if (g_context.enabled) {
+        g_context.call_count++;
+
+        if (g_context.call_count % 60 == 0) {  // Log every 60 calls (~1 second)
+            log_format("[Hook] Update called %d times, dt=%.3f\n",
+                      g_context.call_count, delta_time);
+        }
+    }
+
+    // Call original
+    original_player_update(player, delta_time);
+}
+
+extern "C" void main() {
+    log_format("[Plugin] Installing player update hook...\n");
+
+    void* target = (void*)0x71234567800;  // Replace with actual address
+    A64HookFunction(
+        target,
+        (void*)hooked_player_update,
+        (void**)&original_player_update
+    );
+
+    log_format("[Plugin] Hook installed with context tracking\n");
+}
+```
+
 
 ## Advanced Examples
 
-* File System Operations
-* Memory Patching
-* Plugin Information
-* IPC Communication
+### File System Operations
+
 
 Read and write files using Nintendo’s filesystem API:
 
@@ -3546,6 +3710,160 @@ extern "C" void main() {
 ```
 
 SD card must be mounted first. Skyline mounts it automatically in `main.cpp:111`.
+
+### Memory Patching
+
+
+Directly modify game code or data:
+
+```
+#include <cstring>
+#include "skyline/nx/kernel/virtmem.h"  // For memory protection
+
+extern "C" void skyline_tcp_send_raw(void* data, size_t size);
+extern "C" void sky_memcpy(void* dst, const void* src, size_t size);
+
+void log_format(const char* format, ...) {
+    char buffer[256];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    skyline_tcp_send_raw(buffer, strlen(buffer));
+}
+
+void patch_memory(void* address, const void* data, size_t size) {
+    // Make memory writable
+    virtmemLock();
+
+    // Copy new data
+    sky_memcpy(address, data, size);
+
+    // Restore memory protection
+    virtmemUnlock();
+
+    log_format("[Patch] Patched %zu bytes at 0x%016lx\n", 
+              size, (u64)address);
+}
+
+extern "C" void main() {
+    log_format("[Plugin] Applying memory patches...\n");
+
+    // Example: NOP out an instruction (0xD503201F = NOP in ARM64)
+    void* patch_address = (void*)0x7100ABCDEF0;
+    u32 nop_instruction = 0xD503201F;
+
+    patch_memory(patch_address, &nop_instruction, sizeof(nop_instruction));
+
+    // Example: Patch a data value
+    void* value_address = (void*)0x71234567800;
+    float new_value = 2.0f;
+
+    patch_memory(value_address, &new_value, sizeof(new_value));
+
+    log_format("[Plugin] Patches applied successfully\n");
+}
+```
+
+Direct memory patching can crash the game if done incorrectly. Always verify addresses and data sizes.
+
+### Plugin Information
+
+
+Get information about your plugin at runtime:
+
+```
+#include <cstring>
+
+extern "C" void skyline_tcp_send_raw(void* data, size_t size);
+extern "C" u64 get_program_id();
+extern "C" void get_plugin_addresses(const void* internal_addr, 
+                                     void** start, void** end);
+
+void log_format(const char* format, ...) {
+    char buffer[256];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    skyline_tcp_send_raw(buffer, strlen(buffer));
+}
+
+extern "C" void main() {
+    // Get game program ID
+    u64 program_id = get_program_id();
+    log_format("[Plugin] Running on game: %016lx\n", program_id);
+
+    // Get plugin memory bounds
+    void* plugin_start = nullptr;
+    void* plugin_end = nullptr;
+
+    // Pass address inside plugin (use main function's address)
+    get_plugin_addresses((void*)&main, &plugin_start, &plugin_end);
+
+    if (plugin_start && plugin_end) {
+        size_t plugin_size = (char*)plugin_end - (char*)plugin_start;
+        log_format("[Plugin] Loaded at: 0x%016lx - 0x%016lx\n",
+                  (u64)plugin_start, (u64)plugin_end);
+        log_format("[Plugin] Size: %zu bytes (%.2f KB)\n",
+                  plugin_size, plugin_size / 1024.0);
+    } else {
+        log_format("[Plugin] Failed to get plugin addresses\n");
+    }
+}
+```
+
+This example uses from .`get_plugin_addresses()``PluginManager.cpp:225-233`
+
+### IPC Communication
+
+
+Use Nintendo’s IPC (Inter-Process Communication) system:
+
+```
+#include <cstring>
+#include "nn/sf/hipc.h"  // From Skyline headers
+#include "skyline/utils/ipc.hpp"
+
+extern "C" void skyline_tcp_send_raw(void* data, size_t size);
+typedef unsigned int Result;
+typedef unsigned int Handle;
+
+void log_format(const char* format, ...) {
+    char buffer[256];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    skyline_tcp_send_raw(buffer, strlen(buffer));
+}
+
+void query_system_service() {
+    Service srv;
+
+    // Open a service (example: "set:sys")
+    Result rc = skyline::utils::nnServiceCreate(&srv, "set:sys");
+
+    if (R_SUCCEEDED(rc)) {
+        log_format("[IPC] Connected to set:sys service\n");
+
+        // You can now make IPC calls to the service
+        // Example structure for IPC dispatch
+        // (actual usage depends on the service API)
+
+        skyline::utils::nnServiceClose(&srv);
+        log_format("[IPC] Service closed\n");
+    } else {
+        log_format("[IPC] Failed to open service: 0x%x\n", rc);
+    }
+}
+
+extern "C" void main() {
+    log_format("[Plugin] Testing IPC communication...\n");
+    query_system_service();
+}
+```
+
 
 ## Complete Plugin Example
 
@@ -3738,7 +4056,6 @@ void hooked(void* arg1, int arg2, float arg3) {
 }
 ```
 
-
 # Game Compatibility
 
 Understanding Skyline compatibility across different Nintendo Switch games
@@ -3849,19 +4166,19 @@ Some games like Fire Emblem: Three Houses and Pokémon Sword/Shield use socket c
 
 From `source/main.cpp:29`:> Some games (Fire Emblem Three Houses, Pokemon Sword/Shield) use the `&Config` variant before Skyline initializes sockets and do not appreciate this.
 
-These games require modified socket initialization timing.### 
+These games require modified socket initialization timing.###
 
 Games with Guard Acquire Issues
 
 From `source/main.cpp:38`:> Some older games (Final Fantasy 9) seem to have issues with `_cxa_guard_acquire` which gcc automatically adds when using static instances.
 
-Skyline bypasses the singleton pattern for plugin managers on these games.### 
+Skyline bypasses the singleton pattern for plugin managers on these games.###
 
 Games with Multiple RomFS Mounts
 
 From `source/main.cpp:54`:> Some games such as Persona 5 Royal call `nn::fs::MountRom` multiple times.
 
-Skyline uses a `call_once` mechanism to handle these cases properly.## 
+Skyline uses a `call_once` mechanism to handle these cases properly.##
 
 Getting Help
 
@@ -3870,7 +4187,6 @@ If you encounter compatibility issues:1. Check if a game-specific fork exists in
 1. Search for game-specific modifications in the community
 2. Enable TCP logging to diagnose initialization failures
 3. Review the game’s crash reports in Atmosphere’s error logs
-
 
 # Building from Source
 
@@ -4016,7 +4332,7 @@ To build without logging support:
 make CROSSVER=600 NOLOG=1
 ```
 
-This adds the `-DNOLOG` compiler flag, removing TCP logger functionality and reducing binary size.### 
+This adds the `-DNOLOG` compiler flag, removing TCP logger functionality and reducing binary size.###
 
 Build Targets
 
@@ -4111,7 +4427,7 @@ From `nso.mk:36`:
 SOURCES := source $(filter-out %.c %.cpp %.s,$(wildcard source/* source/*/* source/*/*/* source/*/*/*/*))
 ```
 
-The build system recursively includes all subdirectories under `source/` up to 4 levels deep.### 
+The build system recursively includes all subdirectories under `source/` up to 4 levels deep.###
 
 Include Directories
 
@@ -4121,7 +4437,7 @@ From `nso.mk:38`:
 INCLUDES := include libs/libeiffel/include
 ```
 
-Skyline includes the **libeiffel** library for additional functionality.## 
+Skyline includes the **libeiffel** library for additional functionality.##
 
 Troubleshooting Build Issues
 
@@ -4160,7 +4476,7 @@ make CROSSVER=600
 make CROSSVER=1301
 ```
 
-Each build uses a separate build directory, so outputs won’t conflict.### 
+Each build uses a separate build directory, so outputs won’t conflict.###
 
 Network Deployment
 
@@ -4196,7 +4512,6 @@ After building Skyline:1. Copy the NSO file to your SD card’s exefs directory
 1. Configure the appropriate main.npdm for your game
 2. Install plugins to the romfs/skyline/plugins directory
 3. Test with TCP logging enabled for debugging
-
 
 # Troubleshooting
 
