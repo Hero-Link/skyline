@@ -86,6 +86,18 @@ Result nn_ro_init() {
     return ret;
 }
 
+// ---- RTC Diagnostic via A64InlineHook ----
+// caseD_2 @ Ghidra 0x1FE9E8 → runtime = g_MainTextAddr + 0xF89E8
+// A64InlineHook delivers full InlineCtx* with all registers preserved
+static void rtc_inline_callback(InlineCtx* ctx) {
+    if (!skyline::logger::s_Instance) return;
+    skyline::logger::s_Instance->LogFormat(
+        "[RTC] X0=%llx X1=%llx X8=%llx X9=%llx X10=%llx SP=%llx LR=%llx",
+        ctx->registers[0].x, ctx->registers[1].x,
+        ctx->registers[8].x, ctx->registers[9].x, ctx->registers[10].x,
+        ctx->sp.x, ctx->registers[30].x);
+}
+
 void skyline_main() {
     // populate our own process handle
     envSetOwnProcessHandle(skyline::proc_handle::Get());
@@ -116,6 +128,14 @@ void skyline_main() {
 
     // Hook ro::Initialize to prevent game from double-initializing
     A64HookFunction(reinterpret_cast<void*>(nn::ro::Initialize), reinterpret_cast<void*>(nn_ro_init), (void**)&nnRoInitializeImpl);
+
+    // ---- RTC diagnostic ----
+    {
+        uint64_t rtc_addr = skyline::utils::g_MainTextAddr + 0xF89E8;
+        A64InlineHook(reinterpret_cast<void*>(rtc_addr),
+                      reinterpret_cast<void*>(rtc_inline_callback));
+        skyline::logger::s_Instance->LogFormat("[RTC] Hooked at 0x%llx", rtc_addr);
+    }
 
     skyline::logger::s_Instance->LogFormat("[skyline_main] text: 0x%" PRIx64 " | rodata: 0x%" PRIx64
                                            " | data: 0x%" PRIx64 " | bss: 0x%" PRIx64 " | heap: 0x%" PRIx64,
