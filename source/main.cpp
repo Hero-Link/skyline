@@ -1,6 +1,7 @@
 #include "main.hpp"
 
-#include "skyline/logger/DualLogger.hpp"
+#include "skyline/logger/KernelLogger.hpp"
+// #include "skyline/logger/DualLogger.hpp"
 #include "skyline/utils/ipc.hpp"
 #include "skyline/utils/cpputils.hpp"
 #include "skyline/utils/utils.h"
@@ -41,13 +42,10 @@ Result handleNnFsMountRom(char const* path, void* buffer, unsigned long size) {
 
     skyline::utils::g_RomMountStr = std::string(path) + ":/";
 
-    // Some games such as Persona 5 Royal call this method multiple times, so we have to ensure we only initialize the queue once
     g_MountRomInit.call_once([]() {
-        // start task queue
-        skyline::utils::SafeTaskQueue* taskQueue = new skyline::utils::SafeTaskQueue(100);
-        taskQueue->startThread(20, 3, 0x10000); // Stack size 0x4000 -> 0x10000
-        taskQueue->push(new std::unique_ptr<skyline::utils::Task>(after_romfs_task));
-        nn::os::WaitEvent(&after_romfs_task->completionEvent);
+        // Load plugins synchronously (no SafeTaskQueue/thread — HLE unreliable)
+        auto manager = new skyline::plugin::Manager();
+        manager->LoadPluginsImpl();
     });
 
     return rc;
@@ -92,44 +90,32 @@ void skyline_main() {
     // populate our own process handle
     envSetOwnProcessHandle(skyline::proc_handle::Get());
 
-    // init hooking setup
+    // init inline hooking
     A64HookInit();
 
-    // Initialize sockets directly before hooks are installed, so the call
-    // reaches the nn::socket::Initialize before it is stubbed
-    skyline::logger::skyline_socket_init();
+    // socket init/hooks disabled: interferes with NSO network stack
+    // skyline::logger::skyline_socket_init();
+    // skyline::logger::setup_socket_hooks();
 
-    // Prevent the game from re-initializing or finalizing sockets
-    skyline::logger::setup_socket_hooks();
-
-    // initialize logger
-    nn::fs::MountSdCardForDebug("sd");
-    skyline::logger::s_Instance = new skyline::logger::DualLogger();
+    // KernelLogger: outputs via svcOutputDebugString, no SD mount needed
+    // (MountSdCardForDebug causes ResultFsDefaultAllocatorAlreadyUsed)
+    skyline::logger::s_Instance = new skyline::logger::KernelLogger();
     skyline::logger::s_Instance->StartThread();
     skyline::logger::s_Instance->Log("[skyline_main] Beginning initialization.\n");
 
-    // Start TCP accept on background thread (blocks until a client connects)
-    skyline::logger::start_listen_thread();
+    // TCP listen thread disabled: no DualLogger
+    // skyline::logger::start_listen_thread();
 
     // override exception handler to dump info
     nn::os::SetUserExceptionHandler(exception_handler, exception_handler_stack, sizeof(exception_handler_stack),
                                     &exception_info);
 
-    // hook to prevent the game from double mounting romfs
+    // Hook MountRom to load plugins on first ROM mount
     A64HookFunction(reinterpret_cast<void*>(nn::fs::MountRom), reinterpret_cast<void*>(handleNnFsMountRom),
                     (void**)&nnFsMountRomImpl);
 
+    // Hook ro::Initialize to prevent game from double-initializing
     A64HookFunction(reinterpret_cast<void*>(nn::ro::Initialize), reinterpret_cast<void*>(nn_ro_init), (void**)&nnRoInitializeImpl);
-
-    // hook abort to get crash info
-    // Note: This was commented out because some games do not use or have certain variations of this symbol.
-    // This needs to be reworked to check for which symbol is available beforehand.
-    // Until then, check Atmosphere's crash reports or Ryujinx's output
-    /*
-        uintptr_t VAbort_ptr = 0;
-        nn::ro::LookupSymbol(&VAbort_ptr, "_ZN2nn4diag6detail10VAbortImplEPKcS3_S3_iPKNS_6ResultEPKNS_2os17UserExceptionInfoES3_RSt9__va_list");
-        A64HookFunction(reinterpret_cast<void*>(VAbort_ptr), reinterpret_cast<void*>(handleNnDiagDetailVAbortImpl), (void**)&VAbortImpl);
-    */
 
     skyline::logger::s_Instance->LogFormat("[skyline_main] text: 0x%" PRIx64 " | rodata: 0x%" PRIx64
                                            " | data: 0x%" PRIx64 " | bss: 0x%" PRIx64 " | heap: 0x%" PRIx64,
