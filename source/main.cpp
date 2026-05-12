@@ -83,44 +83,29 @@ Result nn_ro_init() {
     return ret;
 }
 
-// ---- RTC v6: double-hook (W0 entry + LR return) ----
-// W0 fires before dispatch wrapper → saves ctx and desired value.
-// LR hook fires AFTER dispatch wrapper returns → writes saved value to ctx[0x68].
-// This bypasses JIT caching because we write ctx[0x68] from our own code.
+// ---- RTC diagnostic: dump all dispatch entries ----
+static uint64_t g_rtc_ctx;
+static bool     g_rtc_pend;
 
-static uint64_t g_rtc_ctx;   // ctx pointer saved by W0
-static uint32_t g_rtc_val;   // value to write to ctx[0x68] (dispatch[type_idx])
-static bool     g_rtc_pend;  // true when a region-8 dispatch just happened
-
+// Diagnostic: dump ALL dispatch entries [0x0..0xF] for region 8 calls
 static void wrap0_callback(InlineCtx* ctx) {
     uint32_t w1 = (uint32_t)ctx->registers[1].x;
     if (((w1 >> 12) & 0xF) != 8) return;
-
     g_rtc_ctx  = ctx->registers[0].x;
-    g_rtc_val  = *(uint32_t*)(g_rtc_ctx + 0x48 + (w1 & 0xF) * 4);
     g_rtc_pend = true;
 
     if (!skyline::logger::s_Instance) return;
-    uint32_t p6 = (w1 >> 8) & 0xF;
+    uint64_t c = g_rtc_ctx;
+    // Dump all 16 dispatch slots
+    uint32_t d[16];
+    for (int i = 0; i < 16; i++) d[i] = *(uint32_t*)(c + 0x48 + i*4);
     skyline::logger::s_Instance->LogFormat(
-        "[W0] W1=%08x p6=%x sub=%x reg=0x%x sp=0x%x LR=%llx",
-        w1, p6, (w1>>16)&0xf,
-        *(uint32_t*)(g_rtc_ctx+0x68), g_rtc_val,
-        ctx->registers[30].x);
+        "[W0] W1=%08x d:%08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x reg8=0x%x",
+        w1, d[0],d[1],d[2],d[3],d[4],d[5],d[6],d[7],
+        d[8],d[9],d[10],d[11],d[12],d[13],d[14],d[15],
+        *(uint32_t*)(c+0x68));
 }
-
-// Hooked at LR=0x85FCE10 — fires right after dispatch wrapper returns
-static void lr_callback(InlineCtx* ctx) {
-    if (!g_rtc_pend) return;
-    g_rtc_pend = false;
-
-    uint32_t old = *(uint32_t*)(g_rtc_ctx + 0x68);
-    *(uint32_t*)(g_rtc_ctx + 0x68) = g_rtc_val;
-
-    if (skyline::logger::s_Instance)
-        skyline::logger::s_Instance->LogFormat(
-            "[LR] reg: 0x%x->0x%x", old, g_rtc_val);
-}
+static void lr_callback(InlineCtx* ctx) { g_rtc_pend = false; }
 
 void skyline_main() {
     // populate our own process handle
