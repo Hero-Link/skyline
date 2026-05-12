@@ -87,28 +87,29 @@ Result nn_ro_init() {
 }
 
 // ---- RTC Diagnostic via A64InlineHook ----
-// Hook Region 8 Write entry (FUN_001fe8d0 @ offset 0xF88D0)
-static void r8w_callback(InlineCtx* ctx) {
+// caseD_2 sets a flag; FUN_001fea4c checks it to only log GPIO writes
+// ---- RTC Implementation ----
+
+// Hook all 4 dispatch wrappers: capture when region == 8 (GPIO range)
+// All decode W1 the same way: region=(W1>>12)&0xF, type_idx=(W1>>8)&0xF
+static void disp_callback(InlineCtx* ctx) {
     uint32_t w1 = (uint32_t)ctx->registers[1].x;
     uint32_t region = (w1 >> 12) & 0xF;
-    uint32_t wrtype = (w1 >> 8) & 0xF;
     if (region != 8) return;
     if (!skyline::logger::s_Instance) return;
-    skyline::logger::s_Instance->LogFormat(
-        "[R8W] W1=%08x type_idx=0x%x width=%x sub=%x",
-        w1, wrtype, w1 & 0xF, (w1 >> 16) & 0xF);
-}
 
-// Hook Region 8 Read entry (FUN_001fe810 @ offset 0xF8810)
-// This is where the emulator returns GPIO/read data from the dispatch table.
-static void r8r_callback(InlineCtx* ctx) {
-    uint32_t w1 = (uint32_t)ctx->registers[1].x;
-    uint32_t region = (w1 >> 12) & 0xF;
-    uint32_t rdtype = (w1 >> 8) & 0xF;
-    if (!skyline::logger::s_Instance) return;
+    uint32_t type_idx = (w1 >> 8) & 0xF;
+    uint32_t sub     = (w1 >> 16) & 0xF;
+    uint64_t lr      = ctx->registers[30].x;
+
+    // Also read dispatch table entry for this type
+    uint64_t ctx_ptr  = ctx->registers[0].x;
+    uint32_t disp_val = *(uint32_t*)(ctx_ptr + 0x48 + type_idx * 4);
+    uint32_t reg_val  = *(uint32_t*)(ctx_ptr + 0x48 + region * 4);
+
     skyline::logger::s_Instance->LogFormat(
-        "[R8R] W1=%08x region=%x type_idx=0x%x width=%x sub=%x",
-        w1, region, rdtype, w1 & 0xF, (w1 >> 16) & 0xF);
+        "[R8] W1=%08x region=%x type=0x%x sub=%x disp=0x%x reg=0x%x LR=%llx",
+        w1, region, type_idx, sub, disp_val, reg_val, lr);
 }
 
 void skyline_main() {
@@ -142,16 +143,20 @@ void skyline_main() {
     // Hook ro::Initialize to prevent game from double-initializing
     A64HookFunction(reinterpret_cast<void*>(nn::ro::Initialize), reinterpret_cast<void*>(nn_ro_init), (void**)&nnRoInitializeImpl);
 
-    // ---- RTC diagnostic: hook both Region 8 Read and Write ----
+    // ---- RTC: hook all 4 dispatch wrappers ----
     {
-        // Write handler (GBA → emulator writes GPIO data)
-        uint64_t waddr = skyline::utils::g_MainTextAddr + 0xF88D0;
-        A64InlineHook(reinterpret_cast<void*>(waddr),
-                      reinterpret_cast<void*>(r8w_callback));
-        skyline::logger::s_Instance->LogFormat("[RTC] W-hook at 0x%llx", waddr);
+        uint64_t addrs[] = {
+            skyline::utils::g_MainTextAddr + 0xF88D0,  // param_5=0 (write)
+            skyline::utils::g_MainTextAddr + 0xF8A90,  // param_5=1
+            skyline::utils::g_MainTextAddr + 0xF8AB0,  // param_5=2 (caseD_2)
+            skyline::utils::g_MainTextAddr + 0xF8AD0,  // param_5=3 (direct write)
+        };
+        for (int i = 0; i < 4; i++) {
+            A64InlineHook(reinterpret_cast<void*>(addrs[i]),
+                          reinterpret_cast<void*>(disp_callback));
+        }
+        skyline::logger::s_Instance->LogFormat("[RTC] Hooked 4 disp wrappers");
     }
-    // Read hooks removed: Region 8 reads use a common dispatch that's too hot to hook.
-    // Instead, we'll modify the dispatch table directly when handling RTC writes.
 
     skyline::logger::s_Instance->LogFormat("[skyline_main] text: 0x%" PRIx64 " | rodata: 0x%" PRIx64
                                            " | data: 0x%" PRIx64 " | bss: 0x%" PRIx64 " | heap: 0x%" PRIx64,
