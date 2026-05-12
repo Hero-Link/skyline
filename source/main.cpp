@@ -25,8 +25,6 @@ void exception_handler(nn::os::UserExceptionInfo* info) {
 }
 
 static skyline::utils::Task* after_romfs_task = new skyline::utils::Task{[]() {
-    // load plugins
-    // Note: Bypassing the singleton-like system because some older games (Final Fantasy 9) seem to have issues with _cxa_guard_acquire which gcc automatically adds when using the static instance
     auto manager = new skyline::plugin::Manager();
     manager->LoadPluginsImpl();
 }};
@@ -43,7 +41,6 @@ Result handleNnFsMountRom(char const* path, void* buffer, unsigned long size) {
     skyline::utils::g_RomMountStr = std::string(path) + ":/";
 
     g_MountRomInit.call_once([]() {
-        // Load plugins synchronously (no SafeTaskQueue/thread — HLE unreliable)
         auto manager = new skyline::plugin::Manager();
         manager->LoadPluginsImpl();
     });
@@ -86,30 +83,43 @@ Result nn_ro_init() {
     return ret;
 }
 
-// ---- RTC Diagnostic via A64InlineHook ----
-// caseD_2 sets a flag; FUN_001fea4c checks it to only log GPIO writes
-// ---- RTC Implementation ----
+// ---- RTC v6: double-hook (W0 entry + LR return) ----
+// W0 fires before dispatch wrapper → saves ctx and desired value.
+// LR hook fires AFTER dispatch wrapper returns → writes saved value to ctx[0x68].
+// This bypasses JIT caching because we write ctx[0x68] from our own code.
 
-// Hook all 4 dispatch wrappers: capture when region == 8 (GPIO range)
-// All decode W1 the same way: region=(W1>>12)&0xF, type_idx=(W1>>8)&0xF
-static void disp_callback(InlineCtx* ctx) {
+static uint64_t g_rtc_ctx;   // ctx pointer saved by W0
+static uint32_t g_rtc_val;   // value to write to ctx[0x68] (dispatch[type_idx])
+static bool     g_rtc_pend;  // true when a region-8 dispatch just happened
+
+static void wrap0_callback(InlineCtx* ctx) {
     uint32_t w1 = (uint32_t)ctx->registers[1].x;
-    uint32_t region = (w1 >> 12) & 0xF;
-    if (region != 8) return;
+    if (((w1 >> 12) & 0xF) != 8) return;
+
+    g_rtc_ctx  = ctx->registers[0].x;
+    g_rtc_val  = *(uint32_t*)(g_rtc_ctx + 0x48 + (w1 & 0xF) * 4);
+    g_rtc_pend = true;
+
     if (!skyline::logger::s_Instance) return;
-
-    uint32_t type_idx = (w1 >> 8) & 0xF;
-    uint32_t sub     = (w1 >> 16) & 0xF;
-    uint64_t lr      = ctx->registers[30].x;
-
-    // Also read dispatch table entry for this type
-    uint64_t ctx_ptr  = ctx->registers[0].x;
-    uint32_t disp_val = *(uint32_t*)(ctx_ptr + 0x48 + type_idx * 4);
-    uint32_t reg_val  = *(uint32_t*)(ctx_ptr + 0x48 + region * 4);
-
+    uint32_t p6 = (w1 >> 8) & 0xF;
     skyline::logger::s_Instance->LogFormat(
-        "[R8] W1=%08x region=%x type=0x%x sub=%x disp=0x%x reg=0x%x LR=%llx",
-        w1, region, type_idx, sub, disp_val, reg_val, lr);
+        "[W0] W1=%08x p6=%x sub=%x reg=0x%x sp=0x%x LR=%llx",
+        w1, p6, (w1>>16)&0xf,
+        *(uint32_t*)(g_rtc_ctx+0x68), g_rtc_val,
+        ctx->registers[30].x);
+}
+
+// Hooked at LR=0x85FCE10 — fires right after dispatch wrapper returns
+static void lr_callback(InlineCtx* ctx) {
+    if (!g_rtc_pend) return;
+    g_rtc_pend = false;
+
+    uint32_t old = *(uint32_t*)(g_rtc_ctx + 0x68);
+    *(uint32_t*)(g_rtc_ctx + 0x68) = g_rtc_val;
+
+    if (skyline::logger::s_Instance)
+        skyline::logger::s_Instance->LogFormat(
+            "[LR] reg: 0x%x->0x%x", old, g_rtc_val);
 }
 
 void skyline_main() {
@@ -119,18 +129,10 @@ void skyline_main() {
     // init inline hooking
     A64HookInit();
 
-    // socket init/hooks disabled: interferes with NSO network stack
-    // skyline::logger::skyline_socket_init();
-    // skyline::logger::setup_socket_hooks();
-
     // KernelLogger: outputs via svcOutputDebugString, no SD mount needed
-    // (MountSdCardForDebug causes ResultFsDefaultAllocatorAlreadyUsed)
     skyline::logger::s_Instance = new skyline::logger::KernelLogger();
     skyline::logger::s_Instance->StartThread();
     skyline::logger::s_Instance->Log("[skyline_main] Beginning initialization.\n");
-
-    // TCP listen thread disabled: no DualLogger
-    // skyline::logger::start_listen_thread();
 
     // override exception handler to dump info
     nn::os::SetUserExceptionHandler(exception_handler, exception_handler_stack, sizeof(exception_handler_stack),
@@ -143,19 +145,20 @@ void skyline_main() {
     // Hook ro::Initialize to prevent game from double-initializing
     A64HookFunction(reinterpret_cast<void*>(nn::ro::Initialize), reinterpret_cast<void*>(nn_ro_init), (void**)&nnRoInitializeImpl);
 
-    // ---- RTC: hook all 4 dispatch wrappers ----
+    // ---- RTC: W0 hook at dispatch wrapper entry ----
     {
-        uint64_t addrs[] = {
-            skyline::utils::g_MainTextAddr + 0xF88D0,  // param_5=0 (write)
-            skyline::utils::g_MainTextAddr + 0xF8A90,  // param_5=1
-            skyline::utils::g_MainTextAddr + 0xF8AB0,  // param_5=2 (caseD_2)
-            skyline::utils::g_MainTextAddr + 0xF8AD0,  // param_5=3 (direct write)
-        };
-        for (int i = 0; i < 4; i++) {
-            A64InlineHook(reinterpret_cast<void*>(addrs[i]),
-                          reinterpret_cast<void*>(disp_callback));
-        }
-        skyline::logger::s_Instance->LogFormat("[RTC] Hooked 4 disp wrappers");
+        uint64_t addr = skyline::utils::g_MainTextAddr + 0xF88D0;
+        A64InlineHook(reinterpret_cast<void*>(addr),
+                      reinterpret_cast<void*>(wrap0_callback));
+        skyline::logger::s_Instance->LogFormat("[RTC] W0 hook @ 0x%llx", addr);
+    }
+
+    // ---- RTC: LR hook at dispatch wrapper return point ----
+    {
+        uint64_t addr = skyline::utils::g_MainTextAddr + 0xF6E10;
+        A64InlineHook(reinterpret_cast<void*>(addr),
+                      reinterpret_cast<void*>(lr_callback));
+        skyline::logger::s_Instance->LogFormat("[RTC] LR hook @ 0x%llx", addr);
     }
 
     skyline::logger::s_Instance->LogFormat("[skyline_main] text: 0x%" PRIx64 " | rodata: 0x%" PRIx64
