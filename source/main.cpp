@@ -83,29 +83,31 @@ Result nn_ro_init() {
     return ret;
 }
 
-// ---- RTC diagnostic: dump all dispatch entries ----
-static uint64_t g_rtc_ctx;
-static bool     g_rtc_pend;
+// ---- RTC: caseD_2 entry + FUN_001fea4c exit (paired via counter) ----
+static volatile int g_d2_depth;  // >0 means fea4c was called from caseD_2
 
-// Diagnostic: dump ALL dispatch entries [0x0..0xF] for region 8 calls
-static void wrap0_callback(InlineCtx* ctx) {
-    uint32_t w1 = (uint32_t)ctx->registers[1].x;
-    if (((w1 >> 12) & 0xF) != 8) return;
-    g_rtc_ctx  = ctx->registers[0].x;
-    g_rtc_pend = true;
-
+static void d2_entry(InlineCtx* ctx) {
+    g_d2_depth++;
     if (!skyline::logger::s_Instance) return;
-    uint64_t c = g_rtc_ctx;
-    // Dump all 16 dispatch slots
-    uint32_t d[16];
-    for (int i = 0; i < 16; i++) d[i] = *(uint32_t*)(c + 0x48 + i*4);
     skyline::logger::s_Instance->LogFormat(
-        "[W0] W1=%08x d:%08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x reg8=0x%x",
-        w1, d[0],d[1],d[2],d[3],d[4],d[5],d[6],d[7],
-        d[8],d[9],d[10],d[11],d[12],d[13],d[14],d[15],
-        *(uint32_t*)(c+0x68));
+        "[D2-IN] X1=%x W8=%x W9=%x W10=%x",
+        (uint32_t)ctx->registers[1].x,
+        (uint32_t)ctx->registers[8].x,
+        (uint32_t)ctx->registers[9].x,
+        (uint32_t)ctx->registers[10].x);
 }
-static void lr_callback(InlineCtx* ctx) { g_rtc_pend = false; }
+
+static void d2_out(InlineCtx* ctx) {
+    if (g_d2_depth <= 0) return;
+    g_d2_depth--;
+    if (!skyline::logger::s_Instance) return;
+    skyline::logger::s_Instance->LogFormat(
+        "[D2-OUT] W1=%x W8=%x W9=%x W10=%x",
+        (uint32_t)ctx->registers[1].x,
+        (uint32_t)ctx->registers[8].x,
+        (uint32_t)ctx->registers[9].x,
+        (uint32_t)ctx->registers[10].x);
+}
 
 void skyline_main() {
     // populate our own process handle
@@ -130,20 +132,11 @@ void skyline_main() {
     // Hook ro::Initialize to prevent game from double-initializing
     A64HookFunction(reinterpret_cast<void*>(nn::ro::Initialize), reinterpret_cast<void*>(nn_ro_init), (void**)&nnRoInitializeImpl);
 
-    // ---- RTC: W0 hook at dispatch wrapper entry ----
+    // ---- RTC: caseD_2 entry only (FUN_001fea4c too hot) ----
     {
-        uint64_t addr = skyline::utils::g_MainTextAddr + 0xF88D0;
-        A64InlineHook(reinterpret_cast<void*>(addr),
-                      reinterpret_cast<void*>(wrap0_callback));
-        skyline::logger::s_Instance->LogFormat("[RTC] W0 hook @ 0x%llx", addr);
-    }
-
-    // ---- RTC: LR hook at dispatch wrapper return point ----
-    {
-        uint64_t addr = skyline::utils::g_MainTextAddr + 0xF6E10;
-        A64InlineHook(reinterpret_cast<void*>(addr),
-                      reinterpret_cast<void*>(lr_callback));
-        skyline::logger::s_Instance->LogFormat("[RTC] LR hook @ 0x%llx", addr);
+        uint64_t d2_in = skyline::utils::g_MainTextAddr + 0xF89E8;
+        A64InlineHook(reinterpret_cast<void*>(d2_in), reinterpret_cast<void*>(d2_entry));
+        skyline::logger::s_Instance->LogFormat("[RTC] D2 entry only");
     }
 
     skyline::logger::s_Instance->LogFormat("[skyline_main] text: 0x%" PRIx64 " | rodata: 0x%" PRIx64
