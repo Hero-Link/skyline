@@ -83,82 +83,20 @@ Result nn_ro_init() {
     return ret;
 }
 
-// ---- RTC v8: W0+LR hooks for W1=0925849C (time read path) ----
-// W1=0925849C naturally produces reg=0x1~0xD (13 values cycling).
-// We replace those with real BCD-encoded calendar time.
-static uint64_t g_rtc_ctx;
-static bool     g_rtc_pend;
-static uint32_t g_rtc_time_val;   // BCD time byte to write to ctx[0x68]
-static int      g_rtc_time_idx;   // 0-6 cycling through 7 time bytes
-
-static uint8_t rtc_bcd(unsigned val) {
-    return ((val / 10) << 4) | (val % 10);
+// ---- Safe raw-register read-caller probes ----
+static void log_read_caller_probe(const char* tag, InlineCtx* ctx) {
+    skyline::logger::s_Instance->LogFormat(
+        "%s x0=%llx x1=%llx x2=%llx x3=%llx x4=%llx x5=%llx lr=%llx",
+        tag,
+        ctx->registers[0].x, ctx->registers[1].x, ctx->registers[2].x,
+        ctx->registers[3].x, ctx->registers[4].x, ctx->registers[5].x,
+        ctx->registers[30].x);
 }
 
-static void rtc_prepare_time() {
-    // Hardcoded reference: use system time offset for testing
-    // BCD bytes: year, month, day, weekday, hour, min, sec
-    uint8_t bytes[7] = {
-        rtc_bcd(26),  // year 2026→26
-        rtc_bcd(5),   // month May
-        rtc_bcd(13),  // day 13
-        rtc_bcd(3),   // weekday Wed=3
-        rtc_bcd(14),  // hour (approx now)
-        rtc_bcd(30),  // minute
-        rtc_bcd(0)    // second
-    };
-    g_rtc_time_idx = (g_rtc_time_idx + 1) % 7;
-    g_rtc_time_val = bytes[g_rtc_time_idx];
-}
-
-// GPIO host address for region 8, cached on first W0 call
-static uint64_t g_gpio_host;  // base_ptr + offset for GPIO data register
-static bool     g_gpio_found;
-
-static void wrap0_callback(InlineCtx* ctx) {
-    uint32_t w1 = (uint32_t)ctx->registers[1].x;
-    if (((w1 >> 12) & 0xF) != 8) return;
-
-    uint64_t c = ctx->registers[0].x;
-    g_rtc_ctx = c;
-
-    // Find GPIO host address on first call
-    if (!g_gpio_found) {
-        uint64_t rt = *(uint64_t*)(c + 0x980);
-        if (rt) {
-            uint64_t re = *(uint64_t*)(rt + 0x90);
-            if (re) {
-                uint64_t base = *(uint64_t*)(re + 0x10);
-                uint32_t size = *(uint32_t*)(re + 0x20);
-                g_gpio_host = base + ((size-1) & 0xC4);
-                g_gpio_found = true;
-                skyline::logger::s_Instance->LogFormat(
-                    "[GPIO] base=%llx size=0x%x host=%llx",
-                    base, size, g_gpio_host);
-            }
-        }
-    }
-
-    // Write 0xFF to GPIO host on every region-8 call
-    if (g_gpio_found) {
-        *(uint32_t*)(g_gpio_host) = 0x000000FF;
-    }
-
-    g_rtc_pend = true;
-}
-
-// LR: fires after dispatch wrapper returns → write BCD time to ctx[0x68]
-static void lr_callback(InlineCtx* ctx) {
-    if (!g_rtc_pend) return;
-    g_rtc_pend = false;
-
-    uint32_t old = *(uint32_t*)(g_rtc_ctx + 0x68);
-    *(uint32_t*)(g_rtc_ctx + 0x68) = g_rtc_time_val;
-
-    if (skyline::logger::s_Instance)
-        skyline::logger::s_Instance->LogFormat(
-            "[LR] reg: 0x%x→0x%x idx=%d", old, g_rtc_time_val, g_rtc_time_idx);
-}
+static void rc203400_callback(InlineCtx* ctx) { log_read_caller_probe("[RC203400]", ctx); }
+static void rc2146b0_callback(InlineCtx* ctx) { log_read_caller_probe("[RC2146B0]", ctx); }
+static void rc214230_callback(InlineCtx* ctx) { log_read_caller_probe("[RC214230]", ctx); }
+static void rc214280_callback(InlineCtx* ctx) { log_read_caller_probe("[RC214280]", ctx); }
 
 void skyline_main() {
     // populate our own process handle
@@ -183,15 +121,18 @@ void skyline_main() {
     // Hook ro::Initialize to prevent game from double-initializing
     A64HookFunction(reinterpret_cast<void*>(nn::ro::Initialize), reinterpret_cast<void*>(nn_ro_init), (void**)&nnRoInitializeImpl);
 
-    // ---- RTC: W0 + LR double-hook for time read (W1=0925849C) ----
+    // ---- Safe raw-register read-caller probes ----
     {
-        uint64_t w0_addr = skyline::utils::g_MainTextAddr + 0xF88D0;
-        uint64_t lr_addr = skyline::utils::g_MainTextAddr + 0xF6E10;
-        A64InlineHook(reinterpret_cast<void*>(w0_addr),
-                      reinterpret_cast<void*>(wrap0_callback));
-        A64InlineHook(reinterpret_cast<void*>(lr_addr),
-                      reinterpret_cast<void*>(lr_callback));
-        skyline::logger::s_Instance->LogFormat("[RTC] W0+LR hooks for time read");
+        uint64_t rc203400_addr = skyline::utils::g_MainTextAddr + 0x103400;
+        uint64_t rc2146b0_addr = skyline::utils::g_MainTextAddr + 0x1146B0;
+        uint64_t rc214230_addr = skyline::utils::g_MainTextAddr + 0x114230;
+        uint64_t rc214280_addr = skyline::utils::g_MainTextAddr + 0x114280;
+
+        A64InlineHook(reinterpret_cast<void*>(rc203400_addr), reinterpret_cast<void*>(rc203400_callback));
+        A64InlineHook(reinterpret_cast<void*>(rc2146b0_addr), reinterpret_cast<void*>(rc2146b0_callback));
+        A64InlineHook(reinterpret_cast<void*>(rc214230_addr), reinterpret_cast<void*>(rc214230_callback));
+        A64InlineHook(reinterpret_cast<void*>(rc214280_addr), reinterpret_cast<void*>(rc214280_callback));
+        skyline::logger::s_Instance->LogFormat("[RTC] read-caller raw probes installed");
     }
 
     skyline::logger::s_Instance->LogFormat("[skyline_main] text: 0x%" PRIx64 " | rodata: 0x%" PRIx64
